@@ -8,13 +8,16 @@ use crate::geom::Rect;
 use crate::screens;
 use std::collections::HashMap;
 
-/// Normal windows on screen `idx`, front to back, as AX windows.
-fn windows_on(a: &App, idx: usize, pid: Option<i32>) -> Vec<(Window, Rect)> {
-    let sf = a.screens[idx].frame;
+/// Normal windows on screen `idx` (`None` = every display), front to back, as AX windows.
+fn windows_on(a: &App, idx: Option<usize>, pid: Option<i32>) -> Vec<(Window, Rect)> {
+    let sf = idx.map(|i| a.screens[i].frame);
     let mut by_pid: HashMap<i32, Vec<Window>> = HashMap::new();
     let mut out = Vec::new();
     for info in ax::onscreen_windows() {
-        if pid.is_some_and(|p| p != info.pid) || screens::index_for(&a.screens, &info.bounds) != idx || !sf.intersects(&info.bounds) {
+        if pid.is_some_and(|p| p != info.pid)
+            || idx.is_some_and(|i| screens::index_for(&a.screens, &info.bounds) != i)
+            || sf.is_some_and(|s| !s.intersects(&info.bounds))
+        {
             continue;
         }
         let list = by_pid.entry(info.pid).or_insert_with(|| ax::app_windows(info.pid));
@@ -36,6 +39,7 @@ fn app_windows_all(pid: i32) -> Vec<(Window, Rect)> {
 }
 
 fn grid_place(a: &mut App, wins: &[(Window, Rect)], area: Rect, cols: usize, rows: usize) {
+    a.grid_undo = Some(wins.iter().map(|(w, f)| (w.pid, w.id(), *f)).collect());
     let g = a.cfg.general.gap;
     let e = a.cfg.general.gaps_on_edges;
     for (i, (w, f)) in wins.iter().take(cols * rows).enumerate() {
@@ -58,7 +62,11 @@ pub fn command(a: &mut App, cmd: &str, target: Target) {
     let pid = front.as_ref().map(|w| w.pid);
     match cmd {
         "tile2x2" | "tile2x3" | "tile-all" | "tile-app" => {
-            let wins = if cmd == "tile-app" { windows_on(a, idx, pid) } else { windows_on(a, idx, None) };
+            let wins = match cmd {
+                "tile-app" => windows_on(a, Some(idx), pid),
+                "tile-all" => windows_on(a, None, None),
+                _ => windows_on(a, Some(idx), None),
+            };
             if wins.is_empty() {
                 return;
             }
@@ -74,7 +82,7 @@ pub fn command(a: &mut App, cmd: &str, target: Target) {
             grid_place(a, &wins, area, cols, rows.max(1));
         }
         "cascade-all" | "cascade-app" => {
-            let mut wins = if cmd == "cascade-app" { windows_on(a, idx, pid) } else { windows_on(a, idx, None) };
+            let mut wins = if cmd == "cascade-app" { windows_on(a, Some(idx), pid) } else { windows_on(a, Some(idx), None) };
             wins.reverse(); // back to front, so the front window ends on top
             let off = a.cfg.tweaks.cascade_offset;
             let n = wins.len() as f64;
@@ -110,7 +118,7 @@ pub fn command(a: &mut App, cmd: &str, target: Target) {
             }
         }
         "tile1x2" | "tile2x1" | "tile1x3" | "tile1x4" => {
-            let wins = windows_on(a, idx, None);
+            let wins = windows_on(a, Some(idx), None);
             if wins.is_empty() {
                 return;
             }
@@ -123,7 +131,7 @@ pub fn command(a: &mut App, cmd: &str, target: Target) {
             grid_place(a, &wins, area, cols, rows);
         }
         "reverse-all" => {
-            let mut wins = windows_on(a, idx, None);
+            let mut wins = windows_on(a, Some(idx), None);
             if wins.is_empty() {
                 return;
             }
@@ -133,7 +141,7 @@ pub fn command(a: &mut App, cmd: &str, target: Target) {
         }
         "app-collate-left" | "app-collate-right" => {
             let Some(pid) = pid else { return };
-            let wins = windows_on(a, idx, Some(pid));
+            let wins = windows_on(a, Some(idx), Some(pid));
             if wins.is_empty() {
                 return;
             }
@@ -142,7 +150,7 @@ pub fn command(a: &mut App, cmd: &str, target: Target) {
         }
         "left-and-quarters" | "right-and-quarters" => {
             let Some(pid) = pid else { return };
-            let mut wins = windows_on(a, idx, Some(pid));
+            let mut wins = windows_on(a, Some(idx), Some(pid));
             if wins.is_empty() {
                 return;
             }
@@ -158,6 +166,13 @@ pub fn command(a: &mut App, cmd: &str, target: Target) {
             engine::apply(a, &w, f, actions::apply_gaps(main, &area, g, e), "");
             if !wins.is_empty() {
                 grid_place(a, &wins, rest, 2, 2);
+            }
+        }
+        "undo-grid" => {
+            for (pid, id, r) in a.grid_undo.take().unwrap_or_default() {
+                if let Some(w) = ax::window_by_id(pid, id) {
+                    w.set_frame(r);
+                }
             }
         }
         "hide-all" => {
@@ -207,7 +222,7 @@ fn reveal(a: &mut App, idx: usize) {
     let s = a.screens[idx].visible;
     let edge = s.max_x() - a.cfg.tweaks.reveal_desktop_width;
     let mut saved = Vec::new();
-    for (w, f) in windows_on(a, idx, None) {
+    for (w, f) in windows_on(a, Some(idx), None) {
         if f.max_x() <= edge {
             continue;
         }
@@ -229,7 +244,7 @@ fn tidy(a: &mut App, idx: usize) {
         "bottom-right", "first-third", "center-third", "last-third", "first-two-thirds", "last-two-thirds",
         "center-half", "almost-maximize",
     ];
-    for (w, f) in windows_on(a, idx, None) {
+    for (w, f) in windows_on(a, Some(idx), None) {
         let wid = w.id();
         let best = PRESETS
             .iter()

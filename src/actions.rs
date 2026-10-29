@@ -184,6 +184,7 @@ pub const ACTIONS: &[Action] = &[
     a("left-and-quarters", "Left and Quarters", "Multiple Windows"),
     a("right-and-quarters", "Right and Quarters", "Multiple Windows"),
     a("tile-all", "Tile All Windows", "Multiple Windows"),
+    a("undo-grid", "Undo Grid", "Multiple Windows"),
     a("tile-app", "Tile App Windows", "Multiple Windows"),
     a("cascade-all", "Cascade All Windows", "Multiple Windows"),
     a("cascade-app", "Cascade App Windows", "Multiple Windows"),

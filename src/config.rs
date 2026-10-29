@@ -475,7 +475,7 @@ impl Default for Tweaks {
 impl Default for Config {
     fn default() -> Self {
         Config {
-            version: 1,
+            version: 3,
             general: General::default(),
             shortcuts: default_shortcuts(),
             win_arrow_modifiers: 0,
@@ -522,6 +522,8 @@ pub fn default_shortcuts() -> BTreeMap<String, Shortcut> {
         ("restore", K_DELETE, co),
         ("next-display", K_RIGHT, coc),
         ("previous-display", K_LEFT, coc),
+        ("tile-all", K_A, co),
+        ("undo-grid", K_Z, co),
     ];
     pairs
         .iter()
@@ -569,7 +571,23 @@ impl Config {
         let p = active_path();
         match std::fs::read(&p) {
             Ok(bytes) => match serde_json::from_slice::<Config>(&bytes) {
-                Ok(c) => c,
+                Ok(mut c) => {
+                    // v2 gave Tile All Windows a default key and made it gather every display.
+                    // v3 added Undo Grid.
+                    if c.version < 3 {
+                        let d = default_shortcuts();
+                        if c.version < 2 {
+                            if let Some(sc) = d.get("tile-all") {
+                                c.shortcuts.entry("tile-all".into()).or_insert(*sc);
+                            }
+                        }
+                        if let Some(sc) = d.get("undo-grid") {
+                            c.shortcuts.entry("undo-grid".into()).or_insert(*sc);
+                        }
+                        c.version = 3;
+                    }
+                    c
+                }
                 Err(e) => {
                     eprintln!("grids: config {} unreadable ({e}); keeping a copy and using defaults", p.display());
                     let _ = std::fs::copy(&p, p.with_extension("json.bad"));

@@ -37,6 +37,8 @@ pub struct App {
     pub released_since_last: bool,
     pub pin: crate::pin::PinState,
     pub stash: crate::stash::StashState,
+    /// Frames before the last tile/grid action, for Undo Grid.
+    pub grid_undo: Option<Vec<(i32, u32, Rect)>>,
     pub reveal: Option<Vec<(i32, u32, Rect)>>,
 }
 
@@ -55,6 +57,7 @@ pub fn init(cfg: Config) {
             released_since_last: true,
             pin: Default::default(),
             stash: Default::default(),
+            grid_undo: None,
             reveal: None,
         })
     });

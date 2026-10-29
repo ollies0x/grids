@@ -28,7 +28,9 @@ first-run importer, so a shortcut bound in either Rectangle edition keeps workin
 
 Approximations worth knowing: `restore-to-screen` returns a window to the screen of its
 pre-action frame; `reasonable-size` is 80% of the usable area centred; `left/right-todo`
-use Pin Mode with the front app; `alternate-left-half` is a left half. Rectangle's cursor
+use Pin Mode with the front app; `alternate-left-half` is a left half. `tile-all` (⌃⌥A by
+default) gathers every open window from every display onto the front window's screen;
+⌃⌥Z puts them back where they were. Minimised and hidden windows are left alone. Rectangle's cursor
 mode actions (`drag`, `resize`, `dial`, `reticle`, `manual`, `winMod`) are not shortcut
 actions and are covered by Grids' own Move & Resize and Quick Throw gestures.
 

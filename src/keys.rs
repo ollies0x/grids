@@ -2,6 +2,8 @@
 
 use crate::config::{CMD, CTRL, OPT, SHIFT};
 
+pub const K_A: u32 = 0;
+pub const K_Z: u32 = 6;
 pub const K_D: u32 = 2;
 pub const K_F: u32 = 3;
 pub const K_G: u32 = 5;
